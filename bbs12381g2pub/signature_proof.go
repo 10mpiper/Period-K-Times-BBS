@@ -24,7 +24,6 @@ type PoKOfSignatureProof struct {
 	u      *ml.G1
 	uBar   *ml.G1
 	ComCid *ml.G1
-	dCid   *ml.G1
 
 	proofVC1 *ProofG1
 	proofVC2 *ProofG1
@@ -222,7 +221,7 @@ func (sp *PoKOfSignatureProof) verifyVC5Proof(challenge *ml.Zr, pubKey *PublicKe
 	g1 := curve.GenG1.Copy()
 	basesVC5 := []*ml.G1{pubKey.h02, g1}
 
-	err := sp.proofVC3.Verify(basesVC5, sp.dCid, challenge)
+	err := sp.proofVC3.Verify(basesVC5, sp.proofVC3.commitment, challenge) //注意这里的dCid
 	if err != nil {
 		return errors.New("bad signature")
 	}
@@ -248,14 +247,41 @@ func (sp *PoKOfSignatureProof) ToBytes() []byte {
 	bytes = append(bytes, sp.aPrime.Compressed()...)
 	bytes = append(bytes, sp.aBar.Compressed()...)
 	bytes = append(bytes, sp.d.Compressed()...)
+	bytes = append(bytes, sp.u.Compressed()...)
+	bytes = append(bytes, sp.uBar.Compressed()...)
+	bytes = append(bytes, sp.ComCid.Compressed()...)
 
 	proof1Bytes := sp.proofVC1.ToBytes()
-	lenBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenBytes, uint32(len(proof1Bytes)))
-	bytes = append(bytes, lenBytes...)
+	lenBytes1 := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes1, uint32(len(proof1Bytes)))
+	bytes = append(bytes, lenBytes1...)
 	bytes = append(bytes, proof1Bytes...)
 
-	bytes = append(bytes, sp.proofVC2.ToBytes()...)
+	proof2Bytes := sp.proofVC2.ToBytes()
+	lenBytes2 := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes2, uint32(len(proof2Bytes)))
+	bytes = append(bytes, lenBytes2...)
+	bytes = append(bytes, proof2Bytes...)
+
+	proof3Bytes := sp.proofVC3.ToBytes()
+	lenBytes3 := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes3, uint32(len(proof3Bytes)))
+	bytes = append(bytes, lenBytes3...)
+	bytes = append(bytes, proof3Bytes...)
+
+	proof4Bytes := sp.proofVC4.ToBytes()
+	lenBytes4 := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes4, uint32(len(proof4Bytes)))
+	bytes = append(bytes, lenBytes4...)
+	bytes = append(bytes, proof4Bytes...)
+
+	proof5Bytes := sp.proofVC5.ToBytes()
+	lenBytes5 := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes5, uint32(len(proof5Bytes)))
+	bytes = append(bytes, lenBytes5...)
+	bytes = append(bytes, proof5Bytes...)
+
+	bytes = append(bytes, sp.proofVC6.ToBytes()...)
 
 	return bytes
 }
@@ -315,11 +341,11 @@ func (pg1 *ProofG1) ToBytes() []byte {
 
 // ParseSignatureProof parses a signature proof.
 func ParseSignatureProof(sigProofBytes []byte) (*PoKOfSignatureProof, error) {
-	if len(sigProofBytes) < g1CompressedSize*3 {
+	if len(sigProofBytes) < g1CompressedSize*6 {
 		return nil, errors.New("invalid size of signature proof")
 	}
 
-	g1Points := make([]*ml.G1, 3)
+	g1Points := make([]*ml.G1, 6)
 	offset := 0
 
 	for i := range g1Points {
@@ -332,27 +358,67 @@ func ParseSignatureProof(sigProofBytes []byte) (*PoKOfSignatureProof, error) {
 		offset += g1CompressedSize
 	}
 
-	proof1BytesLen := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
+	proof1BytesLen1 := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
 	offset += 4
 
-	proofVc1, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen])
+	proofVc1, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen1])
 	if err != nil {
 		return nil, fmt.Errorf("parse G1 proof: %w", err)
 	}
 
-	offset += proof1BytesLen
+	offset += proof1BytesLen1
+	proof1BytesLen2 := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
+	offset += 4
+	proofVc2, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen2])
+	if err != nil {
+		return nil, fmt.Errorf("parse G1 proof: %w", err)
+	}
 
-	proofVc2, err := ParseProofG1(sigProofBytes[offset:])
+	offset += proof1BytesLen2
+	proof1BytesLen3 := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
+	offset += 4
+	proofVc3, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen3])
+	if err != nil {
+		return nil, fmt.Errorf("parse G1 proof: %w", err)
+	}
+
+	offset += proof1BytesLen3
+	proof1BytesLen4 := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
+	offset += 4
+	proofVc4, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen4])
+	if err != nil {
+		return nil, fmt.Errorf("parse G1 proof: %w", err)
+	}
+
+	offset += proof1BytesLen4
+	proof1BytesLen5 := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
+	offset += 4
+	proofVc5, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen5])
+	if err != nil {
+		return nil, fmt.Errorf("parse G1 proof: %w", err)
+	}
+
+	offset += proof1BytesLen5
+
+	proofVc6, err := ParseProofG1(sigProofBytes[offset:])
 	if err != nil {
 		return nil, fmt.Errorf("parse G1 proof: %w", err)
 	}
 
 	return &PoKOfSignatureProof{
-		aPrime:   g1Points[0],
-		aBar:     g1Points[1],
-		d:        g1Points[2],
+		aPrime: g1Points[0],
+		aBar:   g1Points[1],
+		d:      g1Points[2],
+		u:      g1Points[3],
+		uBar:   g1Points[4],
+		ComCid: g1Points[5],
+
 		proofVC1: proofVc1,
 		proofVC2: proofVc2,
+		proofVC3: proofVc3,
+		proofVC4: proofVc4,
+		proofVC5: proofVc5,
+		proofVC6: proofVc6,
 	}, nil
 }
 

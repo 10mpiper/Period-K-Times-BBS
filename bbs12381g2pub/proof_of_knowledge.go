@@ -86,7 +86,7 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 
 	//	i := int64(rand.Intn(5))
 	pr := curve.GenG1.Copy()
-	r4, r5 := createRandSignatureFr(), createRandSignatureFr()
+	r4 := createRandSignatureFr()
 
 	J := curve.NewZrFromInt(1)
 	e := signature.E.Copy()
@@ -94,8 +94,6 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	sn = sn.Plus(J)
 	sn.Neg()
 	u := pubKey.phi.Mul(sn)
-	dCid := pubKey.h02.Mul(sn)
-	dCid.Add(pr.Mul(frToRepr(r5)))
 
 	uBar := u.Mul(signature.E)
 
@@ -118,7 +116,7 @@ func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revea
 	}
 
 	//Add cid
-	pokVC2, secrets2, pokVC3, secrets3 := newVC2Signature(d, r3, r4, signature.CID, signature.E, pubKey, sPrime, messages, revealedMessages)
+	pokVC2, secrets2, pokVC3, secrets3, r5 := newVC2Signature(d, r3, r4, signature.CID, signature.E, pubKey, sPrime, messages, revealedMessages)
 	pokVC4, secrets4, pokVC5, secrets5, pokVC6, secrets6 := newVC3Signature(u, pubKey.phi, pubKey.h02, r5, signature.E)
 	return &PoKOfSignature{
 		aPrime: aPrime,
@@ -170,7 +168,7 @@ func newVC1Signature(aPrime *ml.G1, h0 *ml.G1,
 // pokVC2=d^{r} h0^{r} Πhi^{r}
 // secrets2:[-r3,s',{mi}]
 func newVC2Signature(d *ml.G1, r3, r4, e, cid *ml.Zr, pubKey *PublicKeyWithGenerators, sPrime *ml.Zr,
-	messages []*SignatureMessage, revealedMessages map[int]*SignatureMessage) (*ProverCommittedG1, []*ml.Zr, *ProverCommittedG1, []*ml.Zr) {
+	messages []*SignatureMessage, revealedMessages map[int]*SignatureMessage) (*ProverCommittedG1, []*ml.Zr, *ProverCommittedG1, []*ml.Zr, *ml.Zr) {
 	messagesCount := len(messages)
 	committing2 := NewProverCommittingG1()
 
@@ -185,6 +183,10 @@ func newVC2Signature(d *ml.G1, r3, r4, e, cid *ml.Zr, pubKey *PublicKeyWithGener
 	secrets3 = append(secrets3, cid)
 	g1 := curve.GenG1.Copy()
 	committing3.Commit(g1)
+
+	lastIndex := len(committing3.blindingFactors) - 1
+	r5 := committing3.blindingFactors[lastIndex]
+
 	secrets3 = append(secrets3, r4)
 	pokVC3 := committing3.Finish()
 
@@ -214,7 +216,7 @@ func newVC2Signature(d *ml.G1, r3, r4, e, cid *ml.Zr, pubKey *PublicKeyWithGener
 
 	pokVC2 := committing2.Finish()
 
-	return pokVC2, secrets2, pokVC3, secrets3
+	return pokVC2, secrets2, pokVC3, secrets3, r5
 }
 
 // ++++++++++++++++++++++++++
@@ -222,6 +224,8 @@ func newVC3Signature(u, phi, h02 *ml.G1, r5, e *ml.Zr) (*ProverCommittedG1, []*m
 	committing4 := NewProverCommittingG1() //u=\phi^{(e+J+H_1(T))^{-1}}
 	committing5 := NewProverCommittingG1() //d_{cid}=\tilde{h}^{(e+J+H_1(T))^{-1}}g_1^{r_5}\}(n_{2})
 	committing6 := NewProverCommittingG1() //\bar{u}=u^{-e}
+
+	//注意这里有一个很大的问题 com3与com5之间的关系
 
 	secrets4 := make([]*ml.Zr, 1)
 	committing4.Commit(phi)
@@ -277,7 +281,6 @@ func (pos *PoKOfSignature) GenerateProof(challengeHash *ml.Zr) *PoKOfSignaturePr
 		u:      pos.u,
 		uBar:   pos.uBar,
 		ComCid: pos.ComCid,
-		dCid:   pos.dCid,
 
 		proofVC1: pos.pokVC1.GenerateProof(challengeHash, pos.secrets1),
 		proofVC2: pos.pokVC2.GenerateProof(challengeHash, pos.secrets2),
