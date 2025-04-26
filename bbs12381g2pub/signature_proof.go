@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	ml "github.com/IBM/mathlib"
 )
@@ -20,17 +21,26 @@ type PoKOfSignatureProof struct {
 	aPrime *ml.G1
 	aBar   *ml.G1
 	d      *ml.G1
+	u      *ml.G1
+	uBar   *ml.G1
+	ComCid *ml.G1
+	dCid   *ml.G1
 
 	proofVC1 *ProofG1
 	proofVC2 *ProofG1
+	proofVC3 *ProofG1
+	proofVC4 *ProofG1
+	proofVC5 *ProofG1
+	proofVC6 *ProofG1
 }
 
 // GetBytesForChallenge creates bytes for proof challenge.
+// 好好好，修改过后应该是 PokSignature.ToBytes()||nonce
 func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealedMessages map[int]*SignatureMessage,
 	pubKey *PublicKeyWithGenerators) []byte {
 	hiddenCount := pubKey.messagesCount - len(revealedMessages)
 
-	bytesLen := (7 + hiddenCount) * g1UncompressedSize //nolint:gomnd
+	bytesLen := (17 + hiddenCount) * g1UncompressedSize //nolint:gomnd
 	bytes := make([]byte, 0, bytesLen)
 
 	bytes = append(bytes, sp.aBar.Bytes()...)
@@ -47,6 +57,20 @@ func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealedMessages map[int]*Si
 	}
 
 	bytes = append(bytes, sp.proofVC2.commitment.Bytes()...)
+	bytes = append(bytes, pubKey.h0.Bytes()...)
+	g1 := curve.GenG1.Copy()
+	bytes = append(bytes, g1.Bytes()...)
+	bytes = append(bytes, sp.proofVC3.commitment.Bytes()...)
+
+	bytes = append(bytes, pubKey.phi.Bytes()...)
+	bytes = append(bytes, sp.proofVC4.commitment.Bytes()...)
+
+	bytes = append(bytes, pubKey.h02.Bytes()...)
+	bytes = append(bytes, g1.Bytes()...)
+	bytes = append(bytes, sp.proofVC5.commitment.Bytes()...)
+
+	bytes = append(bytes, sp.u.Bytes()...)
+	bytes = append(bytes, sp.proofVC6.commitment.Bytes()...)
 
 	return bytes
 }
@@ -62,12 +86,51 @@ func (sp *PoKOfSignatureProof) Verify(challenge *ml.Zr, pubKey *PublicKeyWithGen
 		return errors.New("bad signature")
 	}
 
-	err := sp.verifyVC1Proof(challenge, pubKey)
-	if err != nil {
-		return err
+	uBar := sp.uBar.Copy()
+	u := sp.u.Copy()
+	uBar.Add(pubKey.phi)
+
+	currentDate := time.Now().Format("20060102")
+	hashT := frFromOKM([]byte(currentDate))
+	J := curve.NewZrFromInt(1)
+	J.Plus(hashT)
+
+	g2 := curve.GenG2.Copy()
+	g2J := curve.GenG2.Copy()
+	g2J.Mul(J)
+
+	ok1 := compareTwoPairings(uBar, g2, u, g2J)
+	if !ok1 {
+		return errors.New("bad signature")
 	}
 
-	return sp.verifyVC2Proof(challenge, pubKey, revealedMessages, messages)
+	err1 := sp.verifyVC1Proof(challenge, pubKey)
+	if err1 != nil {
+		return err1
+	}
+
+	err2 := sp.verifyVC2Proof(challenge, pubKey, revealedMessages, messages)
+	if err2 != nil {
+		return err2
+	}
+
+	err3 := sp.verifyVC3Proof(challenge, pubKey)
+	if err3 != nil {
+		return err3
+	}
+
+	err4 := sp.verifyVC4Proof(challenge, pubKey)
+	if err4 != nil {
+		return err4
+	}
+
+	err5 := sp.verifyVC5Proof(challenge, pubKey)
+	if err5 != nil {
+		return err5
+	}
+
+	return sp.verifyVC6Proof(challenge)
+
 }
 
 func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators) error {
@@ -83,6 +146,7 @@ func (sp *PoKOfSignatureProof) verifyVC1Proof(challenge *ml.Zr, pubKey *PublicKe
 	return nil
 }
 
+// 计算statement，bases
 func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messages []*SignatureMessage) error {
 	revealedMessagesCount := len(revealedMessages)
@@ -111,7 +175,7 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *ml.Zr, pubKey *PublicKe
 
 	// TODO: expose 0
 	pr := curve.GenG1.Copy()
-	pr.Sub(curve.GenG1) //0元素？？？
+	pr.Sub(curve.GenG1)
 
 	for i := 0; i < len(basesDisclosed); i++ {
 		b := basesDisclosed[i]
@@ -121,9 +185,55 @@ func (sp *PoKOfSignatureProof) verifyVC2Proof(challenge *ml.Zr, pubKey *PublicKe
 		pr.Add(g)
 	}
 
-	pr.Neg() //commitment=g1^{-1} Πhi^{-mi}
+	pr.Neg() //statement=g1^{-1} Πhi^{-mi}
 
 	err := sp.proofVC2.Verify(basesVC2, pr, challenge)
+	if err != nil {
+		return errors.New("bad signature")
+	}
+
+	return nil
+}
+
+func (sp *PoKOfSignatureProof) verifyVC3Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators) error {
+	g1 := curve.GenG1.Copy()
+	basesVC3 := []*ml.G1{pubKey.h02, g1}
+
+	err := sp.proofVC3.Verify(basesVC3, sp.ComCid, challenge)
+	if err != nil {
+		return errors.New("bad signature")
+	}
+
+	return nil
+}
+
+func (sp *PoKOfSignatureProof) verifyVC4Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators) error {
+	basesVC4 := []*ml.G1{pubKey.phi}
+
+	err := sp.proofVC3.Verify(basesVC4, sp.u, challenge)
+	if err != nil {
+		return errors.New("bad signature")
+	}
+
+	return nil
+}
+
+func (sp *PoKOfSignatureProof) verifyVC5Proof(challenge *ml.Zr, pubKey *PublicKeyWithGenerators) error {
+	g1 := curve.GenG1.Copy()
+	basesVC5 := []*ml.G1{pubKey.h02, g1}
+
+	err := sp.proofVC3.Verify(basesVC5, sp.dCid, challenge)
+	if err != nil {
+		return errors.New("bad signature")
+	}
+
+	return nil
+}
+
+func (sp *PoKOfSignatureProof) verifyVC6Proof(challenge *ml.Zr) error {
+	basesVC6 := []*ml.G1{sp.u}
+
+	err := sp.proofVC3.Verify(basesVC6, sp.uBar, challenge)
 	if err != nil {
 		return errors.New("bad signature")
 	}

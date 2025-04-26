@@ -260,18 +260,32 @@ func (pos *PoKOfSignature) ToBytes() []byte {
 	challengeBytes := pos.aBar.Bytes()
 	challengeBytes = append(challengeBytes, pos.pokVC1.ToBytes()...)
 	challengeBytes = append(challengeBytes, pos.pokVC2.ToBytes()...)
-
+	challengeBytes = append(challengeBytes, pos.pokVC3.ToBytes()...)
+	challengeBytes = append(challengeBytes, pos.pokVC4.ToBytes()...)
+	challengeBytes = append(challengeBytes, pos.pokVC5.ToBytes()...)
+	challengeBytes = append(challengeBytes, pos.pokVC6.ToBytes()...)
 	return challengeBytes
 }
 
 // GenerateProof generates PoKOfSignatureProof proof from PoKOfSignature signature.
 func (pos *PoKOfSignature) GenerateProof(challengeHash *ml.Zr) *PoKOfSignatureProof {
 	return &PoKOfSignatureProof{
-		aPrime:   pos.aPrime,
-		aBar:     pos.aBar,
-		d:        pos.d,
+		aPrime: pos.aPrime,
+		aBar:   pos.aBar,
+		d:      pos.d,
+
+		u:      pos.u,
+		uBar:   pos.uBar,
+		ComCid: pos.ComCid,
+		dCid:   pos.dCid,
+
 		proofVC1: pos.pokVC1.GenerateProof(challengeHash, pos.secrets1),
 		proofVC2: pos.pokVC2.GenerateProof(challengeHash, pos.secrets2),
+
+		proofVC3: pos.pokVC3.GenerateProof(challengeHash, pos.secrets3),
+		proofVC4: pos.pokVC4.GenerateProof(challengeHash, pos.secrets4),
+		proofVC5: pos.pokVC5.GenerateProof(challengeHash, pos.secrets5),
+		proofVC6: pos.pokVC6.GenerateProof(challengeHash, pos.secrets6),
 	}
 }
 

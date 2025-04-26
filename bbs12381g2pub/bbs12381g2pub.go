@@ -379,6 +379,7 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 
 	proofChallenge := frFromOKM(challengeBytes)
 
+	//生成证明时的随机数：pokSignature.ToBytes()||nonce
 	proof := pokSignature.GenerateProof(proofChallenge)
 
 	payload := newPoKPayload(messagesCount, revealedIndexes)
