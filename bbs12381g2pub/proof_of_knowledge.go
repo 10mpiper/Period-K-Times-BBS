@@ -25,7 +25,6 @@ type PoKOfSignature struct {
 	u      *ml.G1
 	uBar   *ml.G1
 	ComCid *ml.G1
-	dCid   *ml.G1
 
 	pokVC1   *ProverCommittedG1 //存储了bases和blindingFactor 以及com
 	secrets1 []*ml.Zr
@@ -225,7 +224,7 @@ func newVC3Signature(u, phi, h02 *ml.G1, r5, e *ml.Zr) (*ProverCommittedG1, []*m
 	committing5 := NewProverCommittingG1() //d_{cid}=\tilde{h}^{(e+J+H_1(T))^{-1}}g_1^{r_5}\}(n_{2})
 	committing6 := NewProverCommittingG1() //\bar{u}=u^{-e}
 
-	//注意这里有一个很大的问题 com3与com5之间的关系
+	//注意这里com3与com5之间的关系
 
 	secrets4 := make([]*ml.Zr, 1)
 	committing4.Commit(phi)
@@ -364,7 +363,7 @@ func (pc *ProverCommittingG1) Commit(base *ml.G1) {
 }
 
 // +++++++++++++++++++++++0425+++commit cid++++++++++++++++
-// 不不不这个i不应该在这里，而是生成证明前就要指定
+// 不不不,这个i([0, N-1])不应该在这里，而是生成证明前就要指定
 // DeriveProof--> NewPoKOfSignature--> newVC2Signature--> Commit Cid
 func (pc *ProverCommittingG1) CommitCid(base *ml.G1, e *ml.Zr) {
 	pc.bases = append(pc.bases, base)

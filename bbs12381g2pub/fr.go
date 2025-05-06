@@ -23,13 +23,16 @@ var f2192Bytes = []byte{
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-}//调整生成的随机数的范围
+} //调整生成的随机数的范围
 
 func f2192() *ml.Zr {
 	return curve.NewZrFromBytes(f2192Bytes)
 }
 
-//简单看作Msg-->Zr的hash func
+// 简单看作Msg-->Zr的hash func
+/* 功能：将任意消息哈希并映射到特定有限域中的伪随机元素。
+   核心步骤：哈希 → 分割 → 字节转换 → 域运算。
+*/
 func frFromOKM(message []byte) *ml.Zr {
 	const (
 		eightBytes = 8
@@ -57,8 +60,7 @@ func frToRepr(fr *ml.Zr) *ml.Zr {
 	return fr.Copy()
 }
 
-
-//把需要签名的消息映射至Zr
+// 把需要签名的消息映射至Zr
 func messagesToFr(messages [][]byte) []*SignatureMessage {
 	messagesFr := make([]*SignatureMessage, len(messages))
 
@@ -69,8 +71,7 @@ func messagesToFr(messages [][]byte) []*SignatureMessage {
 	return messagesFr
 }
 
-
-//简单看作随机数生成器
+// 简单看作随机数生成器
 func createRandSignatureFr() *ml.Zr {
 	return curve.NewRandomZr(rand.Reader)
 }

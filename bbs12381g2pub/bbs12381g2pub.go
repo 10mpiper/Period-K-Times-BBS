@@ -77,7 +77,7 @@ func (bbs *BBSG2Pub) BlindSign(input *BlindedSignatureRequest, messages [][]byte
 	}
 
 	if len(messages) != len(input.NonBlindedIndices) {
-		return nil, errors.New("The number of messages is not matched with NonBlindedIndices")
+		return nil, errors.New("the number of messages is not matched with NonBlindedIndices")
 	}
 
 	privKey, err := UnmarshalPrivateKey(privKeyBytes)
@@ -146,7 +146,7 @@ func (bbs *BBSG2Pub) BlindSign(input *BlindedSignatureRequest, messages [][]byte
 // 生成签名请求
 func (bbs *BBSG2Pub) BlindedSignReq(blindedmessages [][]byte, blindedIndices []int, nonBlindedIndices []int, pubKeyBytes []byte) (*BlindedSignatureRequest, *ml.Zr, *ml.Zr, error) {
 	if len(blindedIndices) != len(blindedmessages) {
-		return nil, nil, nil, errors.New("The length of blinded messages does not match the length of BlindedIndices.")
+		return nil, nil, nil, errors.New("the length of blinded messages does not match the length of BlindedIndices")
 	}
 
 	messagesCount := len(blindedmessages) + len(nonBlindedIndices)
@@ -251,7 +251,7 @@ func (bbs *BBSG2Pub) MergeBlindSignature(input *Signature, s1, cid1 *ml.Zr) ([]b
 
 	signature, err := input.ToBytes()
 	if err != nil {
-		return nil, errors.New("Cannot Merge")
+		return nil, errors.New("cannot Merge")
 	}
 	return signature, nil
 }

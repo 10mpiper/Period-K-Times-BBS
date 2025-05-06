@@ -22,6 +22,7 @@ type Signature struct {
 }
 
 // ParseSignature parses a Signature from bytes.
+// 添加了cid
 func ParseSignature(sigBytes []byte) (*Signature, error) {
 	if len(sigBytes) != bls12381SignatureLen {
 		return nil, errors.New("invalid size of signature")
@@ -57,6 +58,7 @@ func (s *Signature) ToBytes() ([]byte, error) {
 }
 
 // Verify is used for signature verification.
+// 收到签名后持有者进行验证，无需更改
 func (s *Signature) Verify(messages []*SignatureMessage, pubKey *PublicKeyWithGenerators) error {
 	p1 := s.A
 

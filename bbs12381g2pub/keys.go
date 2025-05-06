@@ -39,13 +39,13 @@ type PrivateKey struct {
 // and a generator for each message h.
 type PublicKeyWithGenerators struct {
 	h0  *ml.G1
-	h01 *ml.G1 //generator for UID
-	h02 *ml.G1 //generator for CID
-	h   []*ml.G1
-	phi *ml.G1
-	w   *ml.G2
+	h01 *ml.G1   //generator for UID
+	h02 *ml.G1   //generator for CID
+	h   []*ml.G1 //generators for messages
+	phi *ml.G1   //generator for serial number
+	w   *ml.G2   //pk
 
-	messagesCount int
+	messagesCount int //revealed msg + concealed msg
 }
 
 // ToPublicKeyWithGenerators creates PublicKeyWithGenerators from the PublicKey.

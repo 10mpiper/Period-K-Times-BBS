@@ -16,6 +16,7 @@ type SignatureMessage struct {
 }
 
 // ParseSignatureMessage parses SignatureMessage from bytes.
+// 通过哈希
 func ParseSignatureMessage(message []byte) *SignatureMessage {
 	elm := frFromOKM(message)
 

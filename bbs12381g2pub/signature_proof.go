@@ -92,6 +92,7 @@ func (sp *PoKOfSignatureProof) Verify(challenge *ml.Zr, pubKey *PublicKeyWithGen
 	currentDate := time.Now().Format("20060102")
 	hashT := frFromOKM([]byte(currentDate))
 	J := curve.NewZrFromInt(1)
+	// J := 1 + H(T)
 	J.Plus(hashT)
 
 	g2 := curve.GenG2.Copy()
